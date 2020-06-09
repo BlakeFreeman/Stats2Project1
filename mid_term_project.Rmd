@@ -161,6 +161,7 @@ forward_selection = step(object=model_full, scope=scope_formula, direction="forw
 summary(forward_selection)
 plot(forward_selection)
 
+
 forward_selection_aic = AIC(forward_selection)
 forward_selection_aic # AIC of the model using forward selection method
 ```
