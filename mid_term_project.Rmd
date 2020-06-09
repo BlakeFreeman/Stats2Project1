@@ -1,0 +1,317 @@
+---
+title: "Project"
+author: "Lijju Mathew"
+date: "June 4, 2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+install.packages("GoodmanKruskal")
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+library(caTools)
+library(dplyr)
+library(magrittr)
+library(readr)
+library(survival)
+library(nlme)
+library(gridExtra) #grid.arrange()
+library(class)
+library(forcats)
+library(MASS)
+library(GGally)
+library(tidyr)
+library(maps)
+library(mapproj)
+library(stringr)
+library(rmarkdown)
+library(knitr)
+library(jsonlite)
+library(RCurl)
+library(class)
+library(httr)
+library(mice)
+library(corrplot)
+library(GoodmanKruskal) # GKtauDataframe()
+#library(moderndive) # get_regression_table()
+#library(faraway)
+#library(randomForest)
+#library(e1071)
+#library(naivebayes)
+#library(caret)
+#library(SuperLearner)
+#library(psych)
+#library(tm)
+#library(VIM)
+
+
+```
+
+```{r datacleanup}
+who_data <- read.csv(file.choose())
+who_data <- who_data %>% filter(Year == 2014)
+head(who_data)
+summary(who_data)
+str(who_data)
+
+# Find the no of attributes with missing values
+sort(sapply(who_data, function(x) sum(is.na(x))), decreasing = T)
+
+#Missing data and percentage plot
+missing.values <- who_data %>%
+  gather(key = "key", value = "val") %>%
+  dplyr::mutate(isna = is.na(val)) %>%
+  dplyr::group_by(key) %>%
+  dplyr::mutate(total = n()) %>%
+  dplyr::group_by(key, total, isna)%>%
+  dplyr::summarise(num.isna = n())%>%
+  dplyr::mutate(pct = num.isna / total * 100)
+
+levels <- (missing.values %>% filter(isna == T) %>% arrange(desc(pct)))$key
+
+percentage.plot <- missing.values %>%
+      ggplot() + geom_bar(aes(x = reorder(key, desc(pct)), y = pct, fill=isna), stat = 'identity', alpha=0.8) +
+      scale_x_discrete(limits = levels) +
+      scale_fill_manual(name = "", values = c('steelblue', 'tomato3'), labels = c("Present", "Missing")) +
+      coord_flip() + 
+      labs(title = "Percentage of missing values", x = 'Variable', y = "% of missing values")
+percentage.plot
+
+tempData <- mice(who_data,m=1,maxit=0,meth='fastpmm',seed=500)
+who_imp <- complete(tempData,1)
+
+sort(sapply(who_imp, function(x) sum(is.na(x))), decreasing = T)
+glimpse(who_imp)
+```
+
+```{r split}
+set.seed(10)
+split_percent = .50
+trainIndices = sample(1:dim(who_imp)[1],round(split_percent * dim(who_imp)[1]))
+train = who_imp[trainIndices,]
+test = who_imp[-trainIndices,]
+```
+
+```{r EDA EDA EDA}
+summary(who_data)
+who_imp_conti <- who_imp[, !sapply(who_imp, is.factor)]
+who_imp_categ <- who_imp[, sapply(who_imp, is.factor)]
+
+# Box plots to find outliers
+boxplot(who_imp_conti[,2:20])
+boxplot(who_imp_conti$Population)
+who_imp[which.max(who_imp$Population),]
+
+# ScatterPlot
+head(who_imp_conti)
+pairs(who_imp_conti[,2:20], pch=19)
+
+# Computing the p value of correlations
+cor.mtest <- function(mat, ...) {
+    mat <- as.matrix(mat)
+    n <- ncol(mat)
+    p.mat<- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(mat[, i], mat[, j], ...)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        }
+    }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+p.mat <- cor.mtest(who_imp_conti[,2:20])
+correlation <- cor(who_imp_conti[,2:20])
+# Correlation plot with significance level of 0.05
+corrplot(correlation, type="upper", order="hclust", p.mat = p.mat, sig.level = 0.05)
+
+cat_cor<- GKtauDataframe(who_imp_categ)
+plot(cat_cor, corrColors = "blue")
+```
+
+EDA
+1. Out of total 183 countries, 151 countries are developing  and 32 are developed
+2. Outliers - Population of India seemed as an outlier, but that is a fact.
+3. Correlation -
+4. Redundant/Unnecessary Variables -
+
+
+```{r Full Model with all predictors}
+model_full = lm(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
+                Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
+                Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
+                Schooling,data=train)
+scope_formula = formula(model_full)
+scope_formula
+forward_selection = step(object=model_full, scope=scope_formula, direction="forward")
+summary(forward_selection)
+plot(forward_selection)
+
+forward_selection_aic = AIC(forward_selection)
+forward_selection_aic # AIC of the model using forward selection method
+```
+
+
+
+```{r lm model1, echo=FALSE}
+model1 <- lm(Life.expectancy~Schooling+Income.composition.of.resources+Total.expenditure+percentage.expenditure+BMI+Alcohol, data=who_imp)
+get_regression_table(model1)
+summary(model1)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model1, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model1, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+
+```{r lm model2, echo=FALSE}
+model2<-step(model1, data=who_imp, direction = "both", test="F")
+get_regression_table(model2)
+summary(model2)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model2, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model2, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+```{r lm model3, echo=FALSE}
+model3<-lm(Life.expectancy~Schooling+Income.composition.of.resources+Total.expenditure+percentage.expenditure+BMI+Alcohol+GDP, data=who_imp)
+get_regression_table(model3)
+cor_table<-cor(who_imp[c(7,8,11,17,18,21,22)])
+X3 <- model.matrix(model3)[,-1]
+vif(X3)
+
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model3, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model3, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+```{r lm model4, echo=FALSE}
+model4<-step(model3, data=who_imp, direction = "both", test="F")
+get_regression_table(model4)
+summary(model4)
+X4 <- model.matrix(model4)[,-1]
+vif(X4)
+plot(model4)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model4, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model4, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+```{r lm model5, echo=FALSE}
+model5<-lm(Life.expectancy~Schooling+Total.expenditure+percentage.expenditure+BMI+Alcohol+GDP, data=who_imp)
+get_regression_table(model5)
+X5 <- model.matrix(model5)[,-1]
+vif(X5)
+
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model5, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model5, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+```{r lm model6, echo=FALSE}
+model6<-step(model5, data=who_imp, direction = "both", test="F")
+get_regression_table(model6)
+summary(model6)
+
+X6 <- model.matrix(model6)[,-1]
+vif(X6)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(model6, subset(test,select=-c(Country,Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+
+# Model validation using train set
+train$Life.expectancy.Predicted <- predict(model6, subset(train,select=-c(Country,Life.expectancy)))
+train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
+train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
+c(correlation = train.correlation, RMSE = train.RMSE)
+```
+
+```{r}
+library(texreg)
+screenreg(list(model1, model2, model3, model4, model5, model6))
+```
+
+```{r knn}
+# Train model with knn and get improtance of predictors
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+set.seed(6)
+model.knn <- train( Life.expectancy ~ ., data=who_imp[,-c(2)], method="knn", trControl=control)
+#Top 10 predictor ranking
+importance.knn <- varImp(model.knn, scale=FALSE)
+rank.knn <- importance.knn$importance
+write.csv(rank.knn, "rank.knn.csv")
+rank.knn <- read.csv("rank.knn.csv", header=TRUE)
+colnames(rank.knn) <- c("Predictors", "Importance")
+rank.knn <- rank.knn[order(rank.knn$Importance, decreasing = TRUE),]
+ggplot(rank.knn[1:20,], aes(x=reorder(Predictors, Importance),y=Importance)) + geom_bar(stat = "identity") + coord_flip() + labs(title="Importance of Predictors", x="Predictors", y="Importance") +theme(axis.text.x=element_text(hjust=0.5, vjust=0.5, size = 12))+theme(axis.text.y=element_text(size = 12))
+```
+
