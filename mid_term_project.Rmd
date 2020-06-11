@@ -46,6 +46,7 @@ library(httr)
 library(mice)
 library(corrplot)
 library(GoodmanKruskal) # GKtauDataframe()
+library(glmnet)
 #library(moderndive) # get_regression_table()
 #library(faraway)
 #library(randomForest)
@@ -99,11 +100,14 @@ glimpse(who_imp)
 
 ```{r split}
 set.seed(10)
-split_percent = .50
+split_percent = .70
 trainIndices = sample(1:dim(who_imp)[1],round(split_percent * dim(who_imp)[1]))
 train = who_imp[trainIndices,]
 test = who_imp[-trainIndices,]
+summary(train)
 ```
+
+
 
 ```{r EDA EDA EDA}
 summary(who_data)
@@ -146,7 +150,15 @@ plot(cat_cor, corrColors = "blue")
 EDA
 1. Out of total 183 countries, 151 countries are developing  and 32 are developed
 2. Outliers - Population of India seemed as an outlier, but that is a fact.
-3. Correlation -
+3. Correlation 
+    Percentage.expenditure - GDP
+    Polio - Hepatitis.B, Diptheria
+    Life.expectancy - Income.composition.of.resources, Schooling, Adult.Mortality, HIV.AIDS 
+    Income.composition.of.resources - Schooling, Adult.Mortality, HIV.AIDS 
+    Schooling - Adult.Mortality
+    thinness..1.19.years - thinness..5.9.years
+    Population - infant.deaths, under.five.deaths
+    infant.deaths - under.five.deaths
 4. Redundant/Unnecessary Variables -
 
 
@@ -157,7 +169,7 @@ model_full = lm(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + pe
                 Schooling,data=train)
 scope_formula = formula(model_full)
 scope_formula
-forward_selection = step(object=model_full, scope=scope_formula, direction="forward")
+forward_selection = step(object=model_full, scope=scope_formula, direction="stepwise")
 summary(forward_selection)
 plot(forward_selection)
 
@@ -166,56 +178,140 @@ forward_selection_aic = AIC(forward_selection)
 forward_selection_aic # AIC of the model using forward selection method
 ```
 
+From the Full Model the below are the significant predictors - Forward Selection
+1.Adult.Mortality
+2.Total.expenditure
+3.HIV.AIDS
+4.Income.composition.of.resources
+
+Residual standard error: 3.404 on 109 degrees of freedom
+Multiple R-squared:  0.8625,	Adjusted R-squared:  0.8398 
+
+From the Full Model the below are the significant predictors - Backward Selection
+1.Adult.Mortality
+2.Total.expenditure
+3.HIV.AIDS
+4.Income.composition.of.resources
+
+Residual standard error: 3.343 on 122 degrees of freedom
+Multiple R-squared:  0.8516,	Adjusted R-squared:  0.8455 
 
 
-```{r lm model1, echo=FALSE}
-model1 <- lm(Life.expectancy~Schooling+Income.composition.of.resources+Total.expenditure+percentage.expenditure+BMI+Alcohol, data=who_imp)
-get_regression_table(model1)
-summary(model1)
+From the Full Model the below are the significant predictors - Stepwise Selection
+1.Adult.Mortality
+2.Total.expenditure
+3.HIV.AIDS
+4.Income.composition.of.resources
+
+Residual standard error: 3.343 on 122 degrees of freedom
+Multiple R-squared:  0.8516,	Adjusted R-squared:  0.8455
+
+dev.off()
+```{r reduced model1- from manual selection, echo=FALSE}
+reduced_model_1 <- lm(Life.expectancy~Schooling+Income.composition.of.resources+Alcohol+ HIV.AIDS, data=train)
+get_regression_table(reduced_model_1)
+summary(reduced_model_1)
 # Model validation using test set
-test$Life.expectancy.Predicted <- predict(model1, subset(test,select=-c(Country,Life.expectancy)))
+test$Life.expectancy.Predicted <- predict(reduced_model_1, subset(test,select=-c(Country,Life.expectancy)))
 test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
 test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
 c(correlation = test.correlation, RMSE = test.RMSE)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model1, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
+vif(reduced_model_1)
+plot(reduced_model_1)
+# Scatterplot
+pairs(data.frame(train$Schooling,train$Alcohol,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
 
+From the Reduced Model (manual selection) the below are the significant predictors 
+1.Income.composition.of.resources
+2.HIV.AIDS
+Residual standard error: 3.708 on 123 degrees of freedom
+Multiple R-squared:  0.8159,	Adjusted R-squared:   0.81 
+correlation        RMSE 
+     0.8378      0.5866 
+VIF
+Schooling = 6.275441                 
+Income.composition.of.resources = 6.636833                      
+Alcohol = 1.571182         
+HIV.AIDS = 1.254619
 
-```{r lm model2, echo=FALSE}
-model2<-step(model1, data=who_imp, direction = "both", test="F")
-get_regression_table(model2)
-summary(model2)
+```{r reduced model2 - from stepwise selection, echo=FALSE}
+reduced_model_2 <- lm(Life.expectancy~Adult.Mortality+Income.composition.of.resources+Total.expenditure+ HIV.AIDS, data=train)
+get_regression_table(reduced_model_2)
+summary(reduced_model_2)
 # Model validation using test set
-test$Life.expectancy.Predicted <- predict(model2, subset(test,select=-c(Country,Life.expectancy)))
+test$Life.expectancy.Predicted <- predict(reduced_model_2, subset(test,select=-c(Country,Life.expectancy)))
 test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
 test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
 c(correlation = test.correlation, RMSE = test.RMSE)
-
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model2, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
+vif(reduced_model_2)
+plot(reduced_model_2)
+# Scatterplot
+pairs(data.frame(train$Adult.Mortality,train$Total.expenditure,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
+
+From the Reduced Model (stepwise selection) the below are the significant predictors 
+1.Adult.Mortality
+2.Income.composition.of.resources 
+3.Total.expenditure
+4.HIV.AIDS
+
+Residual standard error: 3.373 on 123 degrees of freedom
+Multiple R-squared:  0.8477,	Adjusted R-squared:  0.8427
+correlation        RMSE 
+     0.8379      0.4089 
+VIF
+Adult.Mortality = 2.252322              
+Income.composition.of.resources = 1.875678                    
+Total.expenditure = 1.072145           
+HIV.AIDS = 1.527980
+
+
+```{r, LASSO  echo=T}
+#Formatting data for GLM net
+x=model.matrix(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
+                Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
+                Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
+                Schooling, train)[,-1]
+y=train$Life.expectancy
+
+xtest<-model.matrix(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
+                Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
+                Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
+                Schooling,test)[,-1]
+ytest<-test$Life.expectancy
+
+grid=10^seq(10,-2, length =100)
+lasso.mod=glmnet(x,y,alpha=1, lambda =grid)
+
+cv.out=cv.glmnet(x,y,alpha=1) #alpha=1 performs LASSO
+plot(cv.out)
+bestlambda<-cv.out$lambda.min  #Optimal penalty parameter.  You can make this call visually.
+lasso.pred=predict (lasso.mod ,s=bestlambda ,newx=xtest)
+
+testMSE_LASSO<-mean((ytest-lasso.pred)^2)
+testMSE_LASSO
+coef(lasso.mod,s=bestlambda)
+```
+
+Lasso Predictors ?
+================
+Adult.Mortality
+Alcohol
+percentage.expenditure
+under.five.deaths
+Total.expenditure
+Diphtheria
+HIV.AIDS
+thinness.5.9.years
+Income.composition.of.resources
+Schooling
+
+
+
+
+
+
 
 ```{r lm model3, echo=FALSE}
 model3<-lm(Life.expectancy~Schooling+Income.composition.of.resources+Total.expenditure+percentage.expenditure+BMI+Alcohol+GDP, data=who_imp)
