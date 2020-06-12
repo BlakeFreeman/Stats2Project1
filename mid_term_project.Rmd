@@ -13,10 +13,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 install.packages("GoodmanKruskal")
 
 ```{r library}
@@ -47,22 +43,24 @@ library(mice)
 library(corrplot)
 library(GoodmanKruskal) # GKtauDataframe()
 library(glmnet)
-#library(moderndive) # get_regression_table()
-#library(faraway)
-#library(randomForest)
-#library(e1071)
-#library(naivebayes)
-#library(caret)
-#library(SuperLearner)
-#library(psych)
-#library(tm)
-#library(VIM)
+library(car)
+library(moderndive) # get_regression_table()
+library(faraway)
+library(randomForest)
+library(e1071)
+library(naivebayes)
+library(caret)
+library(SuperLearner)
+library(psych)
+library(tm)
+library(VIM)
 
 
 ```
 
 ```{r datacleanup}
-who_data <- read.csv(file.choose())
+#who_data <- read.csv(file.choose())
+who_data <- read.csv("/Users/lijjumathew/Library/Mobile Documents/com~apple~CloudDocs/Lijju/SMU/Courses/Applied Statistics/Project/Life Expectancy Data")
 who_data <- who_data %>% filter(Year == 2014)
 head(who_data)
 summary(who_data)
@@ -161,21 +159,24 @@ EDA
     infant.deaths - under.five.deaths
 4. Redundant/Unnecessary Variables -
 
+dev.off()
 
 ```{r Full Model with all predictors}
+par(mfrow=c(2,2))
 model_full = lm(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
                 Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
                 Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
                 Schooling,data=train)
 scope_formula = formula(model_full)
 scope_formula
-forward_selection = step(object=model_full, scope=scope_formula, direction="stepwise")
-summary(forward_selection)
-plot(forward_selection)
+model_full_selection = step(object=model_full, scope=scope_formula, direction="both")
+summary(model_full_selection)
+plot(model_full_selection)
 
-
-forward_selection_aic = AIC(forward_selection)
-forward_selection_aic # AIC of the model using forward selection method
+model_full_selection_aic = AIC(model_full_selection)
+model_full_selection_bic = BIC(model_full_selection)
+model_full_selection_aic # AIC of the model using forward selection method
+model_full_selection_bic
 ```
 
 From the Full Model the below are the significant predictors - Forward Selection
@@ -186,6 +187,7 @@ From the Full Model the below are the significant predictors - Forward Selection
 
 Residual standard error: 3.404 on 109 degrees of freedom
 Multiple R-squared:  0.8625,	Adjusted R-squared:  0.8398 
+AIC=696.2527  BIC=753.2933
 
 From the Full Model the below are the significant predictors - Backward Selection
 1.Adult.Mortality
@@ -195,6 +197,7 @@ From the Full Model the below are the significant predictors - Backward Selectio
 
 Residual standard error: 3.343 on 122 degrees of freedom
 Multiple R-squared:  0.8516,	Adjusted R-squared:  0.8455 
+AIC=680.0494  BIC=700.0137
 
 
 From the Full Model the below are the significant predictors - Stepwise Selection
@@ -205,9 +208,11 @@ From the Full Model the below are the significant predictors - Stepwise Selectio
 
 Residual standard error: 3.343 on 122 degrees of freedom
 Multiple R-squared:  0.8516,	Adjusted R-squared:  0.8455
+AIC=680.0494  BIC=700.0137
 
 dev.off()
 ```{r reduced model1- from manual selection, echo=FALSE}
+par(mfrow=c(2,2))
 reduced_model_1 <- lm(Life.expectancy~Schooling+Income.composition.of.resources+Alcohol+ HIV.AIDS, data=train)
 get_regression_table(reduced_model_1)
 summary(reduced_model_1)
@@ -217,9 +222,15 @@ test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predict
 test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
 c(correlation = test.correlation, RMSE = test.RMSE)
 vif(reduced_model_1)
+
+reduced_model_1_aic = AIC(reduced_model_1)
+reduced_model_1_bic = BIC(reduced_model_1)
+reduced_model_1_aic # AIC of the model using forward selection method
+reduced_model_1_bic
+
 plot(reduced_model_1)
 # Scatterplot
-pairs(data.frame(train$Schooling,train$Alcohol,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
+pairs(data.frame(train$Life.expectancy,train$Schooling,train$Alcohol,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
 
 From the Reduced Model (manual selection) the below are the significant predictors 
@@ -234,8 +245,12 @@ Schooling = 6.275441
 Income.composition.of.resources = 6.636833                      
 Alcohol = 1.571182         
 HIV.AIDS = 1.254619
+AIC=705.623  BIC=722.7352
+
+dev.off()
 
 ```{r reduced model2 - from stepwise selection, echo=FALSE}
+par(mfrow=c(2,2))
 reduced_model_2 <- lm(Life.expectancy~Adult.Mortality+Income.composition.of.resources+Total.expenditure+ HIV.AIDS, data=train)
 get_regression_table(reduced_model_2)
 summary(reduced_model_2)
@@ -246,8 +261,12 @@ test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted
 c(correlation = test.correlation, RMSE = test.RMSE)
 vif(reduced_model_2)
 plot(reduced_model_2)
+reduced_model_2_aic = AIC(reduced_model_2)
+reduced_model_2_bic = BIC(reduced_model_2)
+reduced_model_2_aic # AIC of the model using forward selection method
+reduced_model_2_bic
 # Scatterplot
-pairs(data.frame(train$Adult.Mortality,train$Total.expenditure,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
+pairs(data.frame(train$Life.expectancy, train$Adult.Mortality,train$Total.expenditure,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
 
 From the Reduced Model (stepwise selection) the below are the significant predictors 
@@ -264,8 +283,10 @@ VIF
 Adult.Mortality = 2.252322              
 Income.composition.of.resources = 1.875678                    
 Total.expenditure = 1.072145           
-HIV.AIDS = 1.527980
+HIV.AIDS = 1.52798
+AIC=681.3944  BIC=698.5066
 
+dev.off()
 
 ```{r, LASSO  echo=T}
 #Formatting data for GLM net
@@ -294,7 +315,7 @@ testMSE_LASSO
 coef(lasso.mod,s=bestlambda)
 ```
 
-Lasso Predictors ?
+Lasso Predictors 
 ================
 Adult.Mortality
 Alcohol
@@ -307,98 +328,52 @@ thinness.5.9.years
 Income.composition.of.resources
 Schooling
 
+dev.off()
 
-
-
-
-
-
-```{r lm model3, echo=FALSE}
-model3<-lm(Life.expectancy~Schooling+Income.composition.of.resources+Total.expenditure+percentage.expenditure+BMI+Alcohol+GDP, data=who_imp)
-get_regression_table(model3)
-cor_table<-cor(who_imp[c(7,8,11,17,18,21,22)])
-X3 <- model.matrix(model3)[,-1]
-vif(X3)
-
+```{r reduced model3 - from Lasso selection, echo=FALSE}
+par(mfrow=c(2,2))
+reduced_model_3 <- lm(Life.expectancy ~ Adult.Mortality + Alcohol + percentage.expenditure + under.five.deaths + Total.expenditure + Diphtheria + HIV.AIDS +  thinness.5.9.years + Income.composition.of.resources + Schooling,data=train)
+get_regression_table(reduced_model_3)
+summary(reduced_model_3)
 # Model validation using test set
-test$Life.expectancy.Predicted <- predict(model3, subset(test,select=-c(Country,Life.expectancy)))
+test$Life.expectancy.Predicted <- predict(reduced_model_3, subset(test,select=-c(Country,Life.expectancy)))
 test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
 test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
 c(correlation = test.correlation, RMSE = test.RMSE)
-
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model3, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
+vif(reduced_model_3)
+plot(reduced_model_3)
+reduced_model_3_aic = AIC(reduced_model_3)
+reduced_model_3_bic = BIC(reduced_model_3)
+reduced_model_3_aic # AIC of the model using forward selection method
+reduced_model_3_bic
+# Scatterplot
+#pairs(data.frame(train$Life.expectancy,train$Adult.Mortality,train$Total.expenditure,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
 
-```{r lm model4, echo=FALSE}
-model4<-step(model3, data=who_imp, direction = "both", test="F")
-get_regression_table(model4)
-summary(model4)
-X4 <- model.matrix(model4)[,-1]
-vif(X4)
-plot(model4)
-# Model validation using test set
-test$Life.expectancy.Predicted <- predict(model4, subset(test,select=-c(Country,Life.expectancy)))
-test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
-test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
-c(correlation = test.correlation, RMSE = test.RMSE)
+dev.off()
 
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model4, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
+```{r model4 - Life Expectancy differences between developed and devloping countries, echo=FALSE}
+par(mfrow=c(2,2))
+reduced_model_4 <- lm(Life.expectancy ~ Status ,data=who_data)
+get_regression_table(reduced_model_4)
+summary(reduced_model_4)
 ```
+(Intercept)        81.138      1.298  62.493  < 2e-16 ***
+StatusDeveloping  -11.636      1.429  -8.141 6.17e-14 ***
 
-```{r lm model5, echo=FALSE}
-model5<-lm(Life.expectancy~Schooling+Total.expenditure+percentage.expenditure+BMI+Alcohol+GDP, data=who_imp)
-get_regression_table(model5)
-X5 <- model.matrix(model5)[,-1]
-vif(X5)
+1. The P value of dummy variable StatusDeveloping is very significant suggesting that 
+  there is statistical evidence of difference in average life expectancy between developing and developed countries.
+2. The average life expectancy in developed countries is estimated to be 81.138
+3. The average life expectancy in developing countries is 11.638 years less than developed countries.
 
-# Model validation using test set
-test$Life.expectancy.Predicted <- predict(model5, subset(test,select=-c(Country,Life.expectancy)))
-test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
-test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
-c(correlation = test.correlation, RMSE = test.RMSE)
-
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model5, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
-```
-
-```{r lm model6, echo=FALSE}
-model6<-step(model5, data=who_imp, direction = "both", test="F")
-get_regression_table(model6)
-summary(model6)
-
-X6 <- model.matrix(model6)[,-1]
-vif(X6)
-# Model validation using test set
-test$Life.expectancy.Predicted <- predict(model6, subset(test,select=-c(Country,Life.expectancy)))
-test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
-test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
-c(correlation = test.correlation, RMSE = test.RMSE)
-
-# Model validation using train set
-train$Life.expectancy.Predicted <- predict(model6, subset(train,select=-c(Country,Life.expectancy)))
-train.correlation <- round(cor(train$Life.expectancy, train$Life.expectancy.Predicted),4)
-train.RMSE <- round(sqrt(mean(train$Life.expectancy-train$Life.expectancy.Predicted)^2),4)
-c(correlation = train.correlation, RMSE = train.RMSE)
-```
 
 ```{r}
 library(texreg)
 screenreg(list(model1, model2, model3, model4, model5, model6))
 ```
 
-```{r knn}
-# Train model with knn and get improtance of predictors
+```{r knn with all the predictors}
+# Train model with knn and get importance of predictors
 control <- trainControl(method="repeatedcv", number=10, repeats=3)
 set.seed(6)
 model.knn <- train( Life.expectancy ~ ., data=who_imp[,-c(2)], method="knn", trControl=control)
@@ -411,4 +386,6 @@ colnames(rank.knn) <- c("Predictors", "Importance")
 rank.knn <- rank.knn[order(rank.knn$Importance, decreasing = TRUE),]
 ggplot(rank.knn[1:20,], aes(x=reorder(Predictors, Importance),y=Importance)) + geom_bar(stat = "identity") + coord_flip() + labs(title="Importance of Predictors", x="Predictors", y="Importance") +theme(axis.text.x=element_text(hjust=0.5, vjust=0.5, size = 12))+theme(axis.text.y=element_text(size = 12))
 ```
+
+
 
