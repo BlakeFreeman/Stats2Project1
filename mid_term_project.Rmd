@@ -173,7 +173,7 @@ model_full = lm(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + pe
                 Schooling,data=train)
 scope_formula = formula(model_full)
 scope_formula
-model_full_selection = step(object=model_full, scope=scope_formula, direction="both")
+model_full_selection = step(object=model_full, scope=scope_formula, direction="backward")
 summary(model_full_selection)
 plot(model_full_selection)
 

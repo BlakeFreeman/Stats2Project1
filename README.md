@@ -30,7 +30,6 @@ Income.composition.of.resources 32.084721   3.092474  10.375  < 2e-16 ***
 Residual standard error: 3.238 on 120 degrees of freedom
 Multiple R-squared:  0.8764,	Adjusted R-squared:  0.8692  
 AIC=673.8125  BIC=699.4808
-ASE=13.23259
 ASE=9.832157
 ==================================================================================
 From the Full Model the below are the significant predictors - Stepwise Selection
@@ -48,7 +47,7 @@ Residual standard error: 3.238 on 120 degrees of freedom
 Multiple R-squared:  0.8764,	Adjusted R-squared:  0.8692
 AIC=673.8125  BIC=699.4808
 ASE=9.832157
-ASE=9.832157
+
 ==================================================================================
 
 ====================================================================================
@@ -76,6 +75,7 @@ Total.expenditure - 1.116503
 HIV.AIDS - 1.811741
 Income.composition.of.resources - 2.760631
 AIC=673.8125  BIC=699.4808
+ASE=9.832157
 ==================================================================================
 
 ==================================================================================
