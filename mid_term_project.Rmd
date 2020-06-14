@@ -1,6 +1,6 @@
 ---
-title: "Project"
-author: "Lijju Mathew"
+title: "Life Expectancy Analysis"
+author: "Lijju Mathew, Blake Freeman, Aniketh Vankina"
 date: "June 4, 2020"
 output: html_document
 editor_options: 
@@ -62,9 +62,13 @@ library(model4you)
 
 ```
 
+============
+OBJECTIVE 1
+============
+
 ```{r datacleanup}
-#who_data <- read.csv(file.choose())
-who_data <- read.csv("/Users/lijjumathew/Library/Mobile Documents/com~apple~CloudDocs/Lijju/SMU/Courses/Applied Statistics/Project/Life Expectancy Data.csv")
+who_data <- read.csv(file.choose())
+#who_data <- read.csv("/Users/lijjumathew/Library/Mobile Documents/com~apple~CloudDocs/Lijju/SMU/Courses/Applied Statistics/Project/Life Expectancy Data.csv")
 who_data <- who_data %>% filter(Year == 2014)
 head(who_data)
 summary(who_data)
@@ -109,7 +113,7 @@ test = who_imp[-trainIndices,]
 summary(train)
 ```
 
-
+dev.off()
 
 ```{r EDA EDA EDA}
 summary(who_data)
@@ -161,7 +165,6 @@ EDA
     thinness..1.19.years - thinness..5.9.years
     Population - infant.deaths, under.five.deaths
     infant.deaths - under.five.deaths
-4. Redundant/Unnecessary Variables -
 
 dev.off()
 
@@ -382,8 +385,6 @@ reduced_model_3_bic
 summary(reduced_model_3)
 ASE=rss(reduced_model_3)/nrow(train)
 ASE
-# Scatterplot
-#pairs(data.frame(train$Life.expectancy,train$Adult.Mortality,train$Total.expenditure,train$Income.composition.of.resources,train$HIV.AIDS), pch=19)
 ```
 
 dev.off()
@@ -434,49 +435,59 @@ StatusDeveloping  -11.636      1.429  -8.141 6.17e-14 ***
 3. The average life expectancy in developing countries is 11.638 years less than developed countries.
 
 
+dev.off()
 
-```{r }
-set.seed(1000)
-reg.fwd=regsubsets(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
-                Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
-                Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
-                Schooling, data=train,method="forward",nvmax=100)
+```{r Final Model1 , echo=FALSE}
+set.seed(100)
+par(mfrow=c(2,2))
+final_model1 <- lm(Life.expectancy ~ Adult.Mortality +  Alcohol + Total.expenditure + HIV.AIDS + Income.composition.of.resources + thinness..1.19.years,data=train)
+get_regression_table(final_model1)
+summary(final_model1)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(final_model1, subset(test,select=-c(Life.expectancy)))
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+vif(final_model1)
+plot(final_model1)
+final_model1_aic = AIC(final_model1)
+final_model1_bic = BIC(final_model1)
+final_model1_aic # AIC of the model using forward selection method
+final_model1_bic
+summary(final_model1)
+ASE=rss(final_model1)/nrow(train)
+ASE
 
 ```
 
 
-```{r, echo=T}
-#Really handy predict function
-predict.regsubsets =function (object , newdata ,id ,...){
-  form=as.formula (object$call [[2]])
-  mat=model.matrix(form ,newdata )
-  coefi=coef(object ,id=id)
-  xvars=names(coefi)
-  mat[,xvars]%*%coefi
-}
+
+```{r Final Model2 , echo=FALSE}
+par(mfrow=c(2,2))
+final_model2 <- lm(Life.expectancy ~ Adult.Mortality +  Total.expenditure + Income.composition.of.resources ,data=train)
+get_regression_table(final_model2)
+summary(final_model2)
+# Model validation using test set
+test$Life.expectancy.Predicted <- predict(final_model2, subset(test,select=-c(Life.expectancy)), interval="confidence")
+test.correlation <- round(cor(test$Life.expectancy, test$Life.expectancy.Predicted),4)
+test.RMSE <- round(sqrt(mean(test$Life.expectancy-test$Life.expectancy.Predicted)^2),4)
+c(correlation = test.correlation, RMSE = test.RMSE)
+vif(final_model2)
+plot(final_model2)
+final_model2_aic = AIC(final_model2)
+final_model2_bic = BIC(final_model2)
+final_model2_aic # AIC of the model using forward selection method
+final_model2_bic
+summary(final_model2)
+ASE=rss(final_model2)/nrow(train)
+ASE
 ```
 
-With the prediction function read in we can simply write a loop to predicted on each of the 20 models generated from the forward selection procedure and plot the ASE's.  I've included the training ASE for comparison.
-
-```{r, echo=T, fig.width=5,fig.height=4}
-testASE<-c()
-#note my index is to 20 since that what I set it in regsubsets
-for (i in 1:18){
-  predictions<-predict.regsubsets(object=reg.fwd,newdata=test,id=i) 
-  testASE[i]<-mean((test$Life.expectancy-predictions)^2)
-}
-par(mfrow=c(1,1))
-plot(1:18,testASE,type="l",xlab="# of predictors",ylab="test vs train ASE",ylim=c(0.3,0.8))
-index<-which(testASE==min(testASE))
-points(index,testASE[index],col="red",pch=10)
-rss<-summary(reg.fwd)$rss
-lines(1:18,rss/100,lty=3,col="blue")  #Dividing by 100 since ASE=RSS/sample size
-```
 
 dev.off()
 
 ===========
-OBJECTIVE2
+OBJECTIVE 2
 ===========
 
 ```{r knn with all the predictors}
@@ -499,7 +510,10 @@ ggplot(rank.knn[1:20,], aes(x=reorder(Predictors, Importance),y=Importance)) + g
 # Train model with knn and get importance of predictors
 control <- trainControl(method="repeatedcv", number=10, repeats=3)
 set.seed(100)
-model.knn <- train( Life.expectancy ~ Adult.Mortality +  Alcohol + Total.expenditure + HIV.AIDS + Income.composition.of.resources + thinness..1.19.years, data=who_imp[,-c(2)], method="knn", trControl=control)
+model.knn <- train(Life.expectancy ~ Adult.Mortality + infant.deaths + Alcohol + percentage.expenditure + Hepatitis.B + 
+                Measles + BMI + under.five.deaths + Polio + Total.expenditure + Diphtheria + HIV.AIDS + GDP + 
+                Population + thinness..1.19.years + thinness.5.9.years + Income.composition.of.resources + 
+                Schooling, data=who_imp[,-c(2)], method="knn", trControl=control)
 #Top 10 predictor ranking
 importance.knn <- varImp(model.knn, scale=FALSE)
 rank.knn <- importance.knn$importance
@@ -514,6 +528,12 @@ Life.expectancy ~ Adult.Mortality +  Total.expenditure +  Income.composition.of.
 Adult.Mortality +  Alcohol + Total.expenditure + HIV.AIDS + Income.composition.of.resources + thinness..1.19.years
 
 ```{r}
+library(dplyr)
+lifeReduced = who_imp %>% select(Life.expectancy, Adult.Mortality, Total.expenditure, Income.composition.of.resources)
+lifeFull = who_imp %>% select(Life.expectancy, Adult.Mortality, Alcohol, Total.expenditure, HIV.AIDS, Income.composition.of.resources, thinness..1.19.years)
+```
+
+```{r knn life reduced}
 set.seed(100)
 iterations = 10
 numks = 30
@@ -521,12 +541,12 @@ splitPerc = .70
 masterAcc = matrix(nrow = iterations, ncol = numks)
 for(j in 1:iterations)
 {
-   trainIndices = sample(1:dim(who_imp)[1],round(splitPerc * dim(who_imp)[1]))
-    train = who_imp[trainIndices,]
-    test = who_imp[-trainIndices,]
+   trainIndices = sample(1:dim(lifeReduced)[1],round(splitPerc * dim(lifeReduced)[1]))
+    train = lifeReduced[trainIndices,]
+    test = lifeReduced[-trainIndices,]
   for(i in 1:numks)
   {
-    classifications = knn(train[,c(5:21)],test[,c(5:21)],train$Life.expectancy, prob = TRUE, k = i)
+    classifications = knn(train[,c(2,3,4)],test[,c(2,3,4)],train$Life.expectancy, prob = TRUE, k = i)
     u <- union(classifications,test$Life.expectancy)
     t <- table(factor(classifications, u), factor(test$Life.expectancy, u))
     CM = confusionMatrix(t)
@@ -540,22 +560,31 @@ max(MeanAcc)
 ```
 
 
-```{r}
-library(dvmisc)
-library(Metrics)
+```{r knn life full}
 set.seed(100)
-split_percent = .70
-trainIndices = sample(1:dim(who_imp)[1],round(split_percent * dim(who_imp)[1]))
-train = who_imp[trainIndices,]
-test = who_imp[-trainIndices,]
-
-Model1_fit = lm(Life.expectancy ~ Adult.Mortality + Alcohol + Total.expenditure + HIV.AIDS + Income.composition.of.resources + thinness..1.19.years, data = train)
-sm <- summary(Model1_fit)
-MSE <- get_mse(Model1_fit, var.estimate = FALSE)
-
-predictions_model = predict(Model1_fit,test)
-predictions_df <- as.data.frame(predictions_model)
-predictions_df
-sm
-rmse(train$Life.expectancy, predictions_model)
+iterations = 10
+numks = 30
+splitPerc = .70
+masterAcc = matrix(nrow = iterations, ncol = numks)
+for(j in 1:iterations)
+{
+   trainIndices = sample(1:dim(lifeFull)[1],round(splitPerc * dim(lifeFull)[1]))
+    train = lifeFull[trainIndices,]
+    test = lifeFull[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = knn(train[,c(2,3,4,5,6,7)],test[,c(2,3,4,5,6,7)],train$Life.expectancy, prob = TRUE, k = i)
+    u <- union(classifications,test$Life.expectancy)
+    t <- table(factor(classifications, u), factor(test$Life.expectancy, u))
+    CM = confusionMatrix(t)
+    masterAcc[j,i] = CM$overall[1]
+  }
+}
+MeanAcc = colMeans(masterAcc)
+plot(seq(1,numks,1),MeanAcc, type = "l")
+which.max(MeanAcc)
+max(MeanAcc)
 ```
+
+
+
