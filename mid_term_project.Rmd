@@ -109,7 +109,64 @@ test = who_imp[-trainIndices,]
 summary(train)
 ```
 
+```{r}
+#For Git
+#EDA 
+library(ISLR)
+library(dplyr)
+library(ggplot2)
+library(ggcorrplot)
+library(tidyr)
+library(magrittr)
+library(plyr)
 
+life = read.csv(file.choose(), header = TRUE)
+summary(life)
+dplyr::glimpse(life)
+attach(life)
+#Life expectancy based on developing and developed countries
+t(aggregate(Life.expectancy ~ Status, data = life, summary))
+
+
+#Does various predicting factors which has been chosen initially really affect the Life expectancy? What are the predicting variables actually affecting the life expectancy?
+library(car)
+who_imp = who_imp[,-3]
+who_imp = who_imp[,-1]
+full.model = lm(Life.expectancy~., data = who_imp)
+vif(full.model)[,3]^2
+
+alias(lm(Life.expectancy~., data = who_imp))
+
+#Should a country having a lower life expectancy value(<65) increase its healthcare expenditure in order to improve its average lifespan?
+life %>% select(Country, Life.expectancy, Total.expenditure, percentage.expenditure) %>% filter(Life.expectancy < 65) 
+
+#How does Infant and Adult mortality rates affect life expectancy?
+par(mfrow = c(1,2))
+plot(Adult.Mortality, Life.expectancy, xlab = "Adult Mortality", ylab = "Life Expectancy")
+new = data.frame(Adult.Mortality = seq(30, 600,1))
+lines(seq(30,600,1), predict(lm(Life.expectancy~Adult.Mortality), newdata = new), col = "red", lwd = 4)
+
+plot(infant.deaths, Life.expectancy)
+new2 = data.frame(infant.deaths = seq(30,600,1))
+lines(seq(30,600,1), predict(lm(Life.expectancy~infant.deaths), newdata = new2), col = "red", lwd = 4)
+#Does Life Expectancy has positive or negative correlation with eating habits, lifestyle, exercise, smoking, drinking alcohol etc.
+
+#What is the impact of schooling on the lifespan of humans?
+plot(Schooling, Life.expectancy, xlab = "Schooling", ylab = "Life Expectancy")
+new3 = data_frame(Schooling = seq(1, 30,1))
+lines(seq(1,30,1), predict(lm(Life.expectancy~Schooling), newdata = new3), col = "red", lwd = 4) 
+#There is a postive corelation between life expectancy and schooling
+
+#Does Life Expectancy have positive or negative relationship with drinking alcohol?
+plot(Alcohol, Life.expectancy, xlab = "Alcohol", ylab = "Life Expectancy")
+new3 = data_frame(Alcohol = seq(0.1, 30,.1))
+lines(seq(0.1,30,.1), predict(lm(Life.expectancy~Alcohol), newdata = new3), col = "red", lwd = 4) 
+#Do densely populated countries tend to have lower life expectancy?
+
+#What is the impact of Immunization coverage on life Expectancy?
+
+
+```
 
 ```{r EDA EDA EDA}
 summary(who_data)
@@ -559,3 +616,5 @@ predictions_df
 sm
 rmse(train$Life.expectancy, predictions_model)
 ```
+
+
